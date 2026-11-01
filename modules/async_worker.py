@@ -19,6 +19,7 @@ from PIL import Image
 from PIL.PngImagePlugin import PngInfo
 from modules.util import generate_temp_filename, TimeIt, get_checkpoint_hashes, get_lora_hashes
 import modules.pipelines
+import modules.faceswap
 from shared import settings
 
 buffer = []
@@ -35,6 +36,35 @@ def is_sha256_hash(input_string):
     if not all(c in '0123456789abcdefABCDEF' for c in input_string):
         return False
     return True
+
+
+def apply_face_swap(image, gen_data):
+    """Swap the source face onto a finished image.
+
+    Any failure returns the original image: a missing model or an undetected
+    face should not throw away a generation that already cost GPU time.
+    """
+    source = gen_data.get("faceswap_source")
+    if source is None:
+        print("WARNING: face swap is enabled but no source image was given")
+        return image
+
+    try:
+        swapped = modules.faceswap.swap_image(
+            image,
+            source,
+            det_size=int(gen_data.get("faceswap_det_size") or 640),
+            target_index=gen_data.get("faceswap_target_index") or 0,
+            source_index=gen_data.get("faceswap_source_index") or 0,
+            paste_back=gen_data.get("faceswap_paste_back", True),
+        )
+    except Exception as exc:
+        print(f"ERROR: face swap failed: {exc}")
+        traceback.print_exc()
+        return image
+
+    return swapped if swapped is not None else image
+
 
 def _process(gen_data):
     res = []
@@ -265,6 +295,11 @@ def _process(gen_data):
                 print(f"ERROR: {iex}")
 
         for x in imgs:
+            # Face swap runs here, on the finished image, so it covers every
+            # pipeline and every image in the batch.
+            if gen_data.get("faceswap_enable"):
+                x = apply_face_swap(x, gen_data)
+
             folder=shared.path_manager.model_paths["temp_outputs_path"]
             local_temp_filename = generate_temp_filename(
                 folder=folder,

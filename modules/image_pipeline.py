@@ -885,7 +885,13 @@ class pipeline:
             controlnet["type"] = "kontext"
             img2img_mode = True
 
-        if controlnet["type"] != "None" and input_images > 0:
+        if (
+            controlnet["type"] != "None"
+            and input_images > 0
+            # "faceswap" is applied to the finished image, not fed into the
+            # sampler, so it must not load or apply a ControlNet here.
+            and controlnet["type"].lower() != "faceswap"
+        ):
             if callback is not None:
                 worker.add_result(
                     gen_data["task_id"],

@@ -3,5 +3,10 @@
         "url": "https://github.com/TencentARC/GFPGAN/releases/download/v1.3.0/GFPGANv1.4.pth",
         "path": "path_faceswap",
         "filename": "GFPGANv1.4.pth"
+    },
+    "faceswap/inswapper_128.onnx": {
+        "url": "https://huggingface.co/datasets/Gourieff/ReActor/resolve/main/models/inswapper_128.onnx",
+        "path": "path_faceswap",
+        "filename": "inswapper_128.onnx"
     }
 }
