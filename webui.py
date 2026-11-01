@@ -73,7 +73,6 @@ import modules.html
 import modules.hints
 import modules.ui.ui_onebutton as ui_onebutton
 import modules.ui.ui_controlnet as ui_controlnet
-import modules.ui.ui_faceswap as ui_faceswap
 from modules.api import add_api, add_fastapi
 from modules.interrogate import look
 
@@ -1139,8 +1138,6 @@ with shared.gradio_root as block:
             inpaint_toggle = ui_controlnet.add_controlnet_tab(
                 main_view, inpaint_view, prompt, image_number, run_event
             )
-
-            ui_faceswap.add_faceswap_tab()
 
             with gr.Tab(label=t("Info")):
                 with gr.Row():

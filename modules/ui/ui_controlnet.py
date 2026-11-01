@@ -9,6 +9,7 @@ import gradio as gr
 from shared import add_ctrl, path_manager, translate
 import modules.ui.ui_evolve as ui_evolve
 import modules.ui.ui_llama as ui_llama
+import modules.ui.ui_faceswap as ui_faceswap
 from PIL import Image
 
 t = translate
@@ -251,6 +252,10 @@ def add_controlnet_tab(main_view, inpaint_view, prompt, image_number, run_event)
         ui_evolve.add_evolve_tab(prompt, image_number, run_event)
 
         ui_llama.add_llama_tab(prompt)
+
+        # Face Swap lives inside this tab rather than as a top-level tab, so it
+        # is impossible to miss next to the Cheat Code dropdown.
+        ui_faceswap.add_faceswap_section()
 
     return inpaint_toggle
 
