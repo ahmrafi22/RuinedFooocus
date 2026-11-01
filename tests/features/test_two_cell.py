@@ -61,6 +61,28 @@ check("launch.py" in show, "restart uses launch.py")
 
 print()
 print("=" * 66)
+print("3b) the setup cell restarts a server that runs older code")
+print("=" * 66)
+# The silent-failure trap: cell 1 pulls new code but leaves the old server
+# process running, so a pushed fix never loads and every retry shows the
+# same error. The marker file records which commit the server runs.
+check("fooocus_server.sha" in setup, "records the running commit in a marker file")
+check("rev-parse" in setup, "reads the checked-out commit")
+check("pkill" in setup, "can stop a stale server")
+check("wait_for_server" in setup, "waits for the restarted server")
+check("already running this exact code" in setup,
+      "keeps the fast path when the code is unchanged")
+check("freezetorch" in setup and "fooocus_server.sha" in setup,
+      "the torch freeze and the marker logic both live in the setup cell")
+check("fooocus_server.sha" in show,
+      "the show cell records the commit it starts, too")
+
+# the stale instructions must not come back: the minimal UI has no Advanced tab
+full_nb = "".join("".join(c["source"]) for c in nb["cells"])
+check("Advanced tab" not in full_nb, "no stale 'Advanced tab' instructions")
+
+print()
+print("=" * 66)
 print("4) no NameError on the #@param variables")
 print("=" * 66)
 for var in ("FORCE_REINSTALL", "SKIP_CHECKPOINT"):
