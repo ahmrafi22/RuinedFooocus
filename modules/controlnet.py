@@ -74,8 +74,9 @@ def modes():
 
 
 def get_model(type):
-    #return controlnet_models[type] if type in controlnet_models else None
-    return path_manager.get_file_path(f"cn_{type}", default=None)
+    # PyraCanny shares the canny ControlNet: only the edge extraction differs.
+    key = "cn_canny" if str(type).lower() == "pyracanny" else f"cn_{type}"
+    return path_manager.get_file_path(key, default=None)
 
 
 def get_settings(gen_data):

@@ -106,6 +106,44 @@ def _wait(task_id):
         # "preview" products are progress updates; ignore them here.
 
 
+_ERROR_LOG = []
+
+
+def _last_error():
+    """Return the most recent error the worker printed, if any.
+
+    The worker writes tracebacks to stdout, which is invisible from the UI, so
+    we tee its prints into a small ring buffer and show the tail on failure.
+    """
+    try:
+        return "\n".join(_ERROR_LOG[-6:])
+    except Exception:
+        return ""
+
+
+def _capture_worker_errors():
+    """Mirror the worker's error output so the UI can display it."""
+    import builtins
+
+    if getattr(_capture_worker_errors, "_done", False):
+        return
+    _capture_worker_errors._done = True
+
+    original = builtins.print
+
+    def tee(*args, **kwargs):
+        try:
+            text = " ".join(str(a) for a in args)
+            if text.startswith(("ERROR", "WARNING", "Traceback")):
+                _ERROR_LOG.append(text)
+                del _ERROR_LOG[:-20]
+        except Exception:
+            pass
+        return original(*args, **kwargs)
+
+    builtins.print = tee
+
+
 def _prune_outputs(keep=8):
     """Delete all but the newest few generated files.
 
@@ -145,8 +183,20 @@ def generate(
     use_faceswap,
     progress=gr.Progress(),
 ):
-    if not prompt or not prompt.strip():
-        raise gr.Error("Type a prompt first.")
+    # A prompt is not strictly required when references are supplied: the pose
+    # reference already dictates the body, and Fooocus filled in a sensible
+    # default prompt in the same situation.
+    has_pose = pose_ref is not None
+    has_face = face_ref is not None
+
+    if not (prompt and prompt.strip()) and not (has_pose or has_face):
+        raise gr.Error("Type a prompt, or add a pose / face reference.")
+
+    if not (prompt and prompt.strip()):
+        prompt = (
+            "photograph of a person, natural skin texture, realistic fabric "
+            "and clothing, soft light, sharp focus, high detail"
+        )
 
     progress(0.02, desc="preparing")
     tmp_files = []
@@ -207,11 +257,17 @@ def generate(
         }
 
         progress(0.10, desc="generating")
+        _ERROR_LOG.clear()
         task_id = worker.add_task(gen_data)
         results = _wait(task_id)
 
         if not results:
-            raise gr.Error("generation produced no image - check the server log")
+            detail = _last_error()
+            raise gr.Error(
+                "generation produced no image."
+                + (f"\n\n{detail}" if detail else
+                   " The worker returned nothing - see the log in the setup cell.")
+            )
 
         out = results[0]
         _prune_outputs()
@@ -271,6 +327,7 @@ def upscale_image(image, upscaler, max_edge, progress=gr.Progress()):
 def build_minimal_ui():
     checkpoints = _checkpoint_list()
     upscalers = _upscaler_list()
+    _capture_worker_errors()
 
     with gr.Blocks(title="RuinedFooocus", analytics_enabled=False) as demo:
         gr.Markdown("# RuinedFooocus\nPrompt, pose + face references, upscale.")

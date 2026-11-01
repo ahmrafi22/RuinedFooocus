@@ -106,11 +106,17 @@ def apply_postprocess(image, gen_data):
 def _process(gen_data):
     res = []
     metadatastrings = []
-    gen_data = process_metadata(gen_data)
 
-    pipeline = modules.pipelines.update(gen_data)
-    if pipeline == None:
-        print(f"ERROR: No pipeline")
+    try:
+        gen_data = process_metadata(gen_data)
+
+        pipeline = modules.pipelines.update(gen_data)
+        if pipeline == None:
+            print(f"ERROR: No pipeline for {gen_data.get('base_model_name')}")
+            return
+    except Exception as exc:
+        print(f"ERROR: could not prepare the task: {exc}")
+        traceback.print_exc()
         return
 
     try:
@@ -519,7 +525,18 @@ def worker():
         time.sleep(0.01)
         if len(buffer) > 0:
             task = buffer.pop(0)
-            handler(task)
+            # A single bad task must never kill this thread: if it did, every
+            # later Generate would silently produce nothing.
+            try:
+                handler(task)
+            except Exception as exc:
+                print(f"ERROR: task {task.get('task_id')} failed: {exc}")
+                traceback.print_exc()
+                # Tell the waiting caller instead of leaving it hanging.
+                try:
+                    outputs.append([task.get("task_id"), "results", []])
+                except Exception:
+                    pass
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
