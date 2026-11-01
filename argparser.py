@@ -62,5 +62,18 @@ fpte_group.add_argument("--fp16-text-enc", action="store_true", help="Store text
 fpte_group.add_argument("--fp32-text-enc", action="store_true", help="Store text encoder weights in fp32.")
 fpte_group.add_argument("--bf16-text-enc", action="store_true", help="Store text encoder weights in bf16.")
 
-args = parser.parse_args()
+# parse_args() reads sys.argv, which in a notebook is the Jupyter kernel's own
+# command line ("-f /root/.local/share/jupyter/runtime/kernel-....json") and
+# makes argparse exit with code 2.
+#
+# parse_known_args() ignores anything it does not recognise, so the kernel's
+# flags are skipped while real Fooocus flags still parse normally.
+import sys as _sys
+
+try:
+    args, _unknown = parser.parse_known_args()
+except SystemExit:
+    print("WARNING: could not parse the command line, using defaults")
+    args = parser.parse_args([])
+
 
