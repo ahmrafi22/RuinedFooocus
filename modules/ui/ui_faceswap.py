@@ -12,63 +12,54 @@ from shared import add_ctrl, path_manager, translate
 t = translate
 
 
-def add_faceswap_section():
-    """Build the Face Swap + Enhance controls. Call inside an existing tab."""
-    with gr.Accordion(label=t("Face Swap"), open=True):
-        gr.Markdown(
-            value=(
-                "Replaces the face in the generated image with the face from the "
-                "**Source face image** below. This is a real identity swap "
-                "(insightface inswapper), applied after generation, so it works "
-                "on batches too.\n\n"
-                "The first run downloads about 850 MB into `models/faceswap/`."
-            )
+def add_faceswap_options():
+    """Secondary face-swap and enhance controls.
+
+    The Face reference image and the 'Use face swap' toggle live in the
+    reference row at the top of the Advanced tab, so they are not repeated here.
+    """
+    with gr.Accordion(label=t("Face swap options"), open=False):
+        det_size = gr.Dropdown(
+            label=t("Detector size"),
+            choices=[256, 320, 512, 640, 768, 1024],
+            value=640,
+            info=t("Larger finds smaller faces but is slower"),
         )
+        add_ctrl("faceswap_det_size", det_size)
 
         with gr.Row():
-            source_image = gr.Image(
-                label=t("Source face image"),
-                type="pil",
+            target_index = gr.Number(
+                label=t("Target face #"),
+                value=0,
+                precision=0,
+                info=t("Which face in the result, largest first"),
             )
-            add_ctrl("faceswap_source", source_image)
+            add_ctrl("faceswap_target_index", target_index)
 
-            with gr.Column():
-                enable = gr.Checkbox(
-                    label=t("Enable face swap"),
-                    value=False,
-                )
-                add_ctrl("faceswap_enable", enable)
+            source_index = gr.Number(
+                label=t("Source face #"),
+                value=0,
+                precision=0,
+                info=t("Which face in the reference, largest first"),
+            )
+            add_ctrl("faceswap_source_index", source_index)
 
-                det_size = gr.Dropdown(
-                    label=t("Detector size"),
-                    choices=[256, 320, 512, 640, 768, 1024],
-                    value=640,
-                    info=t("Larger finds smaller faces but is slower"),
-                )
-                add_ctrl("faceswap_det_size", det_size)
+        paste_back = gr.Checkbox(
+            label=t("Blend into the image"),
+            value=True,
+            info=t("Off pastes the raw 128px swapped crop instead"),
+        )
+        add_ctrl("faceswap_paste_back", paste_back)
 
-                target_index = gr.Number(
-                    label=t("Target face #"),
-                    value=0,
-                    precision=0,
-                    info=t("Which face in the generated image, largest first"),
-                )
-                add_ctrl("faceswap_target_index", target_index)
+        status_box = gr.Textbox(label="", value="", lines=3, interactive=False)
+        check_btn = gr.Button(value=t("Check face swap models"))
 
-                source_index = gr.Number(
-                    label=t("Source face #"),
-                    value=0,
-                    precision=0,
-                    info=t("Which face in the source image, largest first"),
-                )
-                add_ctrl("faceswap_source_index", source_index)
-
-                paste_back = gr.Checkbox(
-                    label=t("Blend into the image"),
-                    value=True,
-                    info=t("Off pastes the raw 128px swapped crop instead"),
-                )
-                add_ctrl("faceswap_paste_back", paste_back)
+        check_btn.click(
+            api_visibility="undocumented",
+            fn=lambda: faceswap.status(),
+            inputs=[],
+            outputs=[status_box],
+        )
 
     with gr.Accordion(label=t("Enhance / Upscale"), open=False):
         gr.Markdown(
@@ -139,21 +130,3 @@ def add_faceswap_section():
                 outputs=targets + [preset_note],
             )
 
-    with gr.Accordion(label=t("Face swap status"), open=False):
-        status_box = gr.Textbox(label="", value="", lines=4, interactive=False)
-        check_btn = gr.Button(value=t("Check models"))
-
-        check_btn.click(
-            api_visibility="undocumented",
-            fn=lambda: faceswap.status(),
-            inputs=[],
-            outputs=[status_box],
-        )
-
-    return enable
-
-
-def add_faceswap_tab():
-    """Kept for compatibility: a tab that contains the section."""
-    with gr.Tab(label=t("Face Swap")):
-        return add_faceswap_section()

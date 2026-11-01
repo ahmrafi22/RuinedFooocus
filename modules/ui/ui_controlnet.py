@@ -15,7 +15,48 @@ from PIL import Image
 t = translate
 
 def add_controlnet_tab(main_view, inpaint_view, prompt, image_number, run_event):
-    with gr.Tab(label=t("PowerUp")):
+    with gr.Tab(label=t("Advanced")):
+        gr.Markdown(
+            value=(
+                "### Advanced\n"
+                "Add a **Pose reference** to follow a body, pose and clothing "
+                "outline, and a **Face reference** to take the identity from. "
+                "Both are optional and are applied together in one generation."
+            )
+        )
+
+        # --- the two references, side by side -------------------------------
+        with gr.Row():
+            with gr.Column():
+                input_image = gr.Image(
+                    label=t("Pose reference (body / clothing)"),
+                    type="pil",
+                    height=260,
+                )
+                add_ctrl("input_image", input_image)
+
+                pose_enable = gr.Checkbox(
+                    label=t("Use PyraCanny on the pose reference"),
+                    value=True,
+                    info=t("Multi-scale canny, the edge style Fooocus used"),
+                )
+                add_ctrl("pose_enable", pose_enable)
+
+            with gr.Column():
+                faceswap_source = gr.Image(
+                    label=t("Face reference (identity)"),
+                    type="pil",
+                    height=260,
+                )
+                add_ctrl("faceswap_source", faceswap_source)
+
+                faceswap_enable = gr.Checkbox(
+                    label=t("Use face swap"),
+                    value=True,
+                    info=t("Real identity swap after generation"),
+                )
+                add_ctrl("faceswap_enable", faceswap_enable)
+
         with gr.Row():
             cn_selection = gr.Dropdown(
                 label=t("Cheat Code"),
@@ -205,12 +246,6 @@ def add_controlnet_tab(main_view, inpaint_view, prompt, image_number, run_event)
             else:
                 return gr.update()
 
-        input_image = gr.Image(
-            label=t("Input image"),
-            type="pil",
-            visible=True,
-        )
-        add_ctrl("input_image", input_image)
         inpaint_toggle = gr.Checkbox(label=t("Inpainting"), value=False)
 
         add_ctrl("inpaint_toggle", inpaint_toggle)
@@ -253,9 +288,9 @@ def add_controlnet_tab(main_view, inpaint_view, prompt, image_number, run_event)
 
         ui_llama.add_llama_tab(prompt)
 
-        # Face Swap lives inside this tab rather than as a top-level tab, so it
-        # is impossible to miss next to the Cheat Code dropdown.
-        ui_faceswap.add_faceswap_section()
+        # Only the secondary controls now; the Face Swap reference itself is
+        # part of the reference row at the top of this tab.
+        ui_faceswap.add_faceswap_options()
 
     return inpaint_toggle
 

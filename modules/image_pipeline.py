@@ -876,6 +876,24 @@ class pipeline:
             controlnet = {}
             controlnet["type"] = "None"
 
+        # A pose reference plus "use PyraCanny" means PyraCanny, without the
+        # user having to also pick a Cheat Code. An explicit Cheat Code still
+        # wins, so this only fills in the default.
+        if (
+            gen_data.get("pose_enable")
+            and input_image is not None
+            and str(controlnet.get("type", "None")).lower() in ("none", "")
+        ):
+            controlnet = dict(controlnet)
+            controlnet.update({
+                "type": "pyracanny",
+                "strength": float(controlnet.get("strength", 0.9) or 0.9),
+                "start": float(controlnet.get("start", 0.0) or 0.0),
+                "stop": float(controlnet.get("stop", 1.0) or 1.0),
+                "edge_low": float(controlnet.get("edge_low", 0.25) or 0.25),
+                "edge_high": float(controlnet.get("edge_high", 0.5) or 0.5),
+            })
+
         # FIXME need a good way to check if we are using Flux.1 Kontext
         if (
             controlnet["type"] == "None" and
