@@ -47,7 +47,7 @@ print()
 print("=" * 66)
 print("2) commit hashes and messages")
 print("=" * 66)
-log = git("log", "--oneline", "-12")
+log = git("log", "--oneline", "-15")
 for sha, msg in [
     ("ae4a0b6", "Add real InsightFace face swap"),
     ("ede6ae0", "Add Colab notebook"),
@@ -160,7 +160,7 @@ check("never actually run" in doc.lower() or "never actually run" in doc,
 check("TORCH_PLATFORM" in doc and "Highest risk" in doc,
       "flags TORCH_PLATFORM as the top risk")
 check("non-commercial" in doc, "carries the licence warning")
-check("200 checks" in doc, "quotes the test count")
+check("278 checks" in doc, "quotes the test count")
 
 print()
 print("=" * 66)

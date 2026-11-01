@@ -1,7 +1,7 @@
-﻿# context.md â€” RuinedFooocus + Face Swap + PyraCanny
+# context.md — RuinedFooocus + Face Swap + PyraCanny
 
 Everything an agent needs to continue this work without re-doing the research.
-Last updated: 2026-11-01.
+Last updated: 2026-11-01 (after the first real Colab render and its fix).
 
 ---
 
@@ -9,9 +9,9 @@ Last updated: 2026-11-01.
 
 A Colab notebook that runs a **Fooocus-like** image generator **inside the notebook** (no `gradio.live`, no public URL), with exactly three things in the UI:
 
-1. **Prompt â†’ image**
-2. **Pose reference (PyraCanny) + Face reference (real face swap) â†’ image**
-3. **Upload an image â†’ upscale it**
+1. **Prompt → image**
+2. **Pose reference (PyraCanny) + Face reference (real face swap) → image**
+3. **Upload an image → upscale it**
 
 Plus a **realistic** photographic look, not illustration.
 
@@ -33,7 +33,7 @@ The user has been burned by repeated silent failures and explicitly dislikes:
 | Upstream base commit | `a076b17` ("Revise installation section in README for 26.10.31") |
 | Local clone | `E:\go\face swap\RuinedFooocus` |
 | Notebook | `RuinedFooocus_colab.ipynb` in the fork root |
-| Tests | `tests/features/` (200 checks) |
+| Tests | `tests/features/` (278 checks) |
 
 Commits on top of upstream (oldest first):
 
@@ -47,6 +47,9 @@ e70e43f  Put Face Swap inside the PowerUp tab, fix notebook NameError
 56f3478  Fix argparse crash under a notebook kernel; split the notebook in two
 b7368e0  Replace the UI with three things: generate, references, upscale
 3fc2797  Fix silent generation failure and the prompt requirement
+0714bcb  Add context.md and move the test suite into the repo
+2f80315  Fix the PyraCanny branch crashing on a tensor pose image
+45b1117  Restart the Colab server when the pulled code changed
 ```
 
 ---
@@ -86,14 +89,14 @@ It also **bundles ComfyUI** (clones it at a pinned hash) and imports it directly
 
 ```
 launch.py                          # upstream: installs deps, clones ComfyUI, then imports webui
-  â””â”€â”€ webui.py                     # REWRITTEN: 62 lines, builds the minimal UI
-        â””â”€â”€ modules/ui/ui_minimal.py
-              â”œâ”€â”€ generate()       # prompt + refs -> worker.add_task -> image
-              â””â”€â”€ upscale_image()  # modules/enhance.py
+  └── webui.py                     # REWRITTEN: 62 lines, builds the minimal UI
+        └── modules/ui/ui_minimal.py
+              ├── generate()       # prompt + refs -> worker.add_task -> image
+              └── upscale_image()  # modules/enhance.py
 
 modules/async_worker.py            # worker thread; calls apply_postprocess per image
-  â”œâ”€â”€ apply_face_swap()            # modules/faceswap.py
-  â””â”€â”€ apply_postprocess()          # enhance first, swap LAST
+  ├── apply_face_swap()            # modules/faceswap.py
+  └── apply_postprocess()          # enhance first, swap LAST
 
 modules/image_pipeline.py          # ComfyUI-based sampling; canny/pyracanny branches
 modules/controlnet.py              # Cheat Code registry
@@ -103,15 +106,15 @@ modules/canny_utils.py             # PyraCanny (cv2 port of Fooocus's canny_pyra
 Generation flow:
 
 ```
-prompt â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-pose image â†’ PyraCanny (cv2 pyramid) â†’ ControlNet â”€â”€â”¤â†’ KSampler â†’ VAE decode
-                                                     â”‚        â”‚
-face image â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜        â”‚
-                                                              â–¼
+prompt ─────────────────────────────────────────────┐
+pose image → PyraCanny (cv2 pyramid) → ControlNet ──┤→ KSampler → VAE decode
+                                                     │        │
+face image ──────────────────────────────────────────┘        │
+                                                              ▼
                                           ReActor-style inswapper swap (modules/faceswap.py)
-                                                              â–¼
+                                                              ▼
                                           optional upscale (modules/enhance.py, spandrel)
-                                                              â–¼
+                                                              ▼
                                                            image
 ```
 
@@ -127,19 +130,19 @@ face image â”€â”€â”€â”€â”€â”€â”€â”€â”
 | `modules/enhance.py` | 166 | `REALISTIC_PRESET`, spandrel upscaler loading, `upscale()`, `downscale_to()`, `enhance_image()` (upscale then swap last). |
 | `modules/ui/ui_minimal.py` | 424 | The whole UI: generate, references, upscale. |
 | `modules/ui/ui_faceswap.py` | 132 | Face-swap option controls (used by the old Advanced tab; **now unused by `webui.py`** but still imported by `ui_controlnet.py`). |
-| `modules/canny_utils.py` | +133 | PyraCanny port, plus `threshold_from_unit()`. |
+| `modules/canny_utils.py` | +175 | PyraCanny port, plus `threshold_from_unit()` and `pyracanny_from_tensor()` (ComfyUI IMAGE tensor in/out). |
 | `modules/pathdb/faceswap.json` | +5 | Registers `inswapper_128.onnx` for auto-download. |
-| `RuinedFooocus_colab.ipynb` | â€” | Two cells: setup, then show UI. |
+| `RuinedFooocus_colab.ipynb` | — | Two cells: setup (restarts the server on new code), then show UI. |
 
 ### Modified
 
 | File | Change |
 |---|---|
-| `webui.py` | **Replaced.** 1503 â†’ 62 lines. Builds the minimal UI, keeps the launch contract (`shared.gradio_root`, `prevent_thread_lock=True`, trailing `while True`). |
+| `webui.py` | **Replaced.** 1503 → 62 lines. Builds the minimal UI, keeps the launch contract (`shared.gradio_root`, `prevent_thread_lock=True`, trailing `while True`). |
 | `modules/async_worker.py` | `apply_face_swap()`, `apply_postprocess()`, hook in the per-image save loop, try/except around `handler(task)`, try/except around `process_metadata`/`pipelines.update`. |
-| `modules/image_pipeline.py` | `case "pyracanny"` branch; `pose_enable` auto-selects PyraCanny; skips ControlNet when type is `faceswap`. |
-| `modules/controlnet.py` | `"pyracanny"` in `controlnet_models`; `get_model()` maps `pyracanny â†’ cn_canny`. |
-| `argparser.py` | `parse_args()` â†’ `parse_known_args()` (Colab kernel argv crash). |
+| `modules/image_pipeline.py` | `case "pyracanny"` branch (tensor in/out via `pyracanny_from_tensor`); `pose_enable` auto-selects PyraCanny; skips ControlNet when type is `faceswap`. |
+| `modules/controlnet.py` | `"pyracanny"` in `controlnet_models`; `get_model()` maps `pyracanny → cn_canny`. |
+| `argparser.py` | `parse_args()` → `parse_known_args()` (Colab kernel argv crash). |
 | `pip/modules.txt` | `+ onnx==1.19.1`, `+ insightface==2.1`, `+ opencv-python==4.11.0.86`. |
 
 ---
@@ -152,13 +155,13 @@ In `launch.py`, `if offline:` guards **all** of `prepare_environment`, including
 
 ### 6.2 argparse dies on a Jupyter kernel's argv
 `argparser.py` called `parse_args()` at import. In a notebook `sys.argv` is
-`['ipykernel_launcher.py', '-f', '.../kernel-*.json']` â†’ `SystemExit: 2`.
+`['ipykernel_launcher.py', '-f', '.../kernel-*.json']` → `SystemExit: 2`.
 Fixed with `parse_known_args()`.
 
 ### 6.3 `pyracanny` had no ControlNet model
-`get_model()` derived `f"cn_{type}"` â†’ `cn_pyracanny`, which is **not** a
+`get_model()` derived `f"cn_{type}"` → `cn_pyracanny`, which is **not** a
 registry key. No ControlNet loaded, pose reference silently ignored.
-Fixed: `pyracanny â†’ cn_canny` (same model, different edge extraction).
+Fixed: `pyracanny → cn_canny` (same model, different edge extraction).
 
 ### 6.4 One failure killed the worker thread forever
 `async_worker.worker()` had `handler(task)` with **no try/except** inside its
@@ -171,7 +174,7 @@ Fixed: catch, print, and append an empty `"results"` so the caller unblocks.
 Now wrapped.
 
 ### 6.6 Upscaler dropdown crash
-`4x-UltraSharp.pth is not in the list of choices: ['None']` â€” the list came from
+`4x-UltraSharp.pth is not in the list of choices: ['None']` — the list came from
 a **disk scan** (empty on fresh install) while the default was a name from the
 **download registry**. Fixed: `_upscaler_list()` reads the registry (35 entries).
 
@@ -182,13 +185,30 @@ a **disk scan** (empty on fresh install) while the default was a name from the
 A top-level tab was invisible because the tab strip scrolls. Tried PowerUp, then
 Advanced, then dropped tabs entirely in favour of the minimal UI.
 
+### 6.9 PyraCanny fed a tensor to a PIL-only helper (first real render)
+`pipeline.process` converts the pose reference into a ComfyUI IMAGE tensor
+before the ControlNet block, but the `case "pyracanny"` branch passed that
+tensor to `pyracanny_from_pil()`, whose first line is `image.convert("RGB")`.
+Every pose-reference generation died with `AttributeError: 'Tensor' object has
+no attribute 'convert'`; the worker caught it, and the UI reported
+"generation produced no image". Fixed with `pyracanny_from_tensor()`
+(tensor → PIL → pyramid → tensor, byte-identical to the PIL path).
+
+### 6.10 The notebook served old code from a surviving server
+On a re-run, cell 1 pulled new code but never restarted a still-running server,
+so a pushed fix would never load and every retry would show the same error.
+Cell 1 now records the commit the server was started from
+(`/content/fooocus_server.sha`) and kills + restarts the server whenever it
+differs from the freshly pulled HEAD. Cell 2 writes the marker too, for the
+case where it is the one starting the server.
+
 ---
 
 ## 7. Verified numbers (do not re-derive)
 
 ### PyraCanny
 Byte-identical to `comfyui_controlnet_aux`'s `PyraCannyPreprocessor` and to
-Fooocus's `canny_pyramid`, across 3 images Ã— 3 threshold pairs = **9/9 exact**.
+Fooocus's `canny_pyramid`, across 3 images × 3 threshold pairs = **9/9 exact**.
 
 ```
 9 scales: 0.2 .. 1.0
@@ -196,27 +216,27 @@ acc = acc*0.75 + edge*0.25
 sum channels -> percentile normalise (1, 99) -> 0..255
 ```
 
-PyraCanny keeps **48197** edge pixels vs **6270** for single-scale Canny (7.7Ã—).
+PyraCanny keeps **48197** edge pixels vs **6270** for single-scale Canny (7.7×).
 
 Threshold mapping: UI sliders are `0..1` (ComfyUI convention), `cv2.Canny` wants
 `0..255`. `threshold_from_unit()` clamps, and reopens an invalid window
-(`low >= 255 â†’ (254, 255)`).
+(`low >= 255 → (254, 255)`).
 
 ### Face swap
 Real swap verified on real faces with real models:
-- `inswapper_128.onnx` 554 MB, input 128Ã—128
+- `inswapper_128.onnx` 554 MB, input 128×128
 - buffalo_l unpacks to exactly 5 files; top-level `buffalo_l/` stripped
 - output keeps target size, is not blank, identity visibly transferred
 
-`FaceAnalysis(name=<absolute dir>)` â€” passing an **absolute directory** makes it
+`FaceAnalysis(name=<absolute dir>)` — passing an **absolute directory** makes it
 read `.onnx` files directly instead of looking in `<root>/models/<name>` and
 downloading. This is deliberate.
 
 ### Upscale
 `4x-UltraSharp.pth` (67 MB) auto-downloads, loads via spandrel, real
-`128Ã—128 â†’ 512Ã—512`.
+`128×128 → 512×512`.
 
-### Test suite â€” 200 checks, 0 failures
+### Test suite — 278 checks, 0 failures
 
 Location: **`tests/features/`** in the repo. Run any file directly:
 
@@ -227,20 +247,23 @@ python test_pyracanny.py
 
 | File | Checks | Covers |
 |---|---|---|
-| `test_pyracanny.py` | 35 | byte-identical to upstream reference, thresholds, tiny images |
+| `test_pyracanny.py` | 45 | byte-identical to upstream reference, thresholds, tiny images, the tensor wrapper (6.9) |
 | `test_enhance.py` | 20 | realistic preset, tensor round-trip, downscale, fallbacks |
 | `test_upscale_real.py` | 7 | real ESRGAN load + 4x upscale |
-| `test_upscaler_resolve.py` | 5 | dropdown name â†’ download â†’ load (the crash) |
-| `test_minimal_ui.py` | 42 | UI builds, only 3 things, no leftover controls |
+| `test_upscaler_resolve.py` | 7 | dropdown name → download → load (the crash) |
+| `test_minimal_ui.py` | 41 | UI builds, only 3 things, no leftover controls (42 when no upscaler model is on disk) |
 | `test_generate_logic.py` | 18 | prompt/refs guards, pyracanny selection, payload |
 | `test_silent_failure.py` | 29 | the three silent-failure bugs stay fixed |
 | `test_worker_integration.py` | 20 | hook position, failure paths, ordering |
-| `test_two_cell.py` | 29 | notebook shape + argparse regression |
+| `test_two_cell.py` | 37 | notebook shape, server restart on new code (6.10), argparse regression |
 | `test_context_doc.py` | 54 | fact-checks this document against the repo |
 
 Note: several tests import `modules.*`, which needs `shared` (cwd must be the
 repo root) and stubs for ComfyUI-dependent modules. `test_minimal_ui.py` and
-`test_advanced_tab.py`-style tests show the stubbing pattern.
+`test_advanced_tab.py`-style tests show the stubbing pattern. Also:
+`test_upscale_real.py` downloads 4x-UltraSharp.pth into `models/upscale_models/`;
+while that file exists, `test_minimal_ui.py` skips its empty-disk-scan
+precondition check instead of failing (one check fewer).
 
 ---
 
@@ -248,16 +271,19 @@ repo root) and stubs for ComfyUI-dependent modules. `test_minimal_ui.py` and
 
 Two cells, deliberately.
 
-**Cell 1 â€” Setup:** checks GPU â†’ clones/pulls fork â†’ runs `launch.py` in the
-background (**without `--offline`**) â†’ streams the log â†’ waits for HTTP 200 on
-`127.0.0.1:7865` â†’ downloads SDXL base (6.9 GB) â†’ downloads swap models (843 MB)
-â†’ prints `setup complete`.
+**Cell 1 — Setup:** checks GPU → clones/pulls fork → reads the pulled commit
+(`git rev-parse HEAD`) → installs (torch frozen via the `freezetorch` file,
+`TORCH_PLATFORM=cu124`, `launch.py` **without `--offline`**) → starts the server
+and streams the log until HTTP 200 on `127.0.0.1:7865` → **restarts the server
+if the running one predates the pulled code** (`/content/fooocus_server.sha`
+marker, bug 6.10) → downloads SDXL base (6.9 GB) → downloads swap models
+(843 MB) → prints `setup complete`.
 
-**Cell 2 â€” Show the UI:** `google.colab.output.serve_kernel_port_as_iframe(7865)`,
-and restarts the server if it is gone.
+**Cell 2 — Show the UI:** `google.colab.output.serve_kernel_port_as_iframe(7865)`,
+and restarts the server (recording the commit in the marker) if it is gone.
 
 Why a background process: `launch.py` ends by importing `webui.py`, which ends in
-`while True: time.sleep(100)` â€” it never returns, so it cannot run inline.
+`while True: time.sleep(100)` — it never returns, so it cannot run inline.
 
 ---
 
@@ -272,32 +298,34 @@ Why a background process: `launch.py` ends by importing `webui.py`, which ends i
 
 ---
 
-## 10. What is NOT verified (read this before claiming success)
+## 10. Verification status (updated 2026-11-01, first real render)
 
-**The app has never actually run.** There is no GPU and no ComfyUI in the dev
-environment. Everything above was verified at the logic level â€” real models, real
-upscaling, real Gradio 6.31 blocks, real ONNX graphs, AST-level hook checks â€” but
-**no end-to-end render has ever been observed.**
+**The app runs.** Until 2026-11-01 the app had never actually run; the first
+real Colab render then proved the whole startup path: the install (the
+`TORCH_PLATFORM=cu124` step, once flagged Highest risk), the model downloads,
+SDXL loading, sampling, and the Gradio 6 UI behind Colab's proxy — the error of
+bug 6.9 was visible inside the iframe. Dev is still GPU-less; ComfyUI itself is
+still stubbed in the tests.
 
-Specifically unverified:
+What that first render also proved: the PyraCanny branch was broken (bug 6.9),
+fixed and pushed as `2f80315`.
 
-1. **`TORCH_PLATFORM=cu124` vs Colab's preinstalled torch.** Highest risk. If the
-   install step fails, this is the first suspect.
-2. **xllamacpp install** from `xorbitsai.github.io` â€” unrelated to this work but
-   in the startup path.
-3. **Gradio 6 behind Colab's path proxy** â€” asset paths may not resolve; the
-   iframe may need re-running.
-4. **Whether `modules/async_worker.py`'s `gen_data` contract holds** for every
-   pipeline (only the SDXL path was reasoned about).
+Still unverified:
+
+1. **A finished pose + face render.** The fix is pushed; it has not been re-run
+   with pose + face references yet.
+2. **The `gen_data` contract for every pipeline** — only the SDXL path has run.
+3. **The upscale tab end to end** — logic is tested, a real render is not.
 
 ---
 
 ## 11. Next steps
 
-1. Run cell 1 in Colab; if it fails, the log tail is printed â€” fix that specific error.
-2. Run cell 2; confirm the iframe renders.
-3. Do one real generation with a pose + face reference.
-4. Delete the now-unreachable UI modules. Verified against the current tree:
+1. In the still-open Colab session, re-run cell 1 — it pulls the fix and now
+   restarts the server because the code changed (bug 6.10). Then re-run cell 2.
+2. Do one real generation with a pose + face reference — the first real test
+   of the 6.9 fix. A full generation also covers the face swap.
+3. Delete the now-unreachable UI modules. Verified against the current tree:
    - **Nothing imports them at all**: `ui_controlnet.py`, `ui_onebutton.py`,
      `ui_settings.py`, `ui_image_gallery.py`
    - **Only imported by other dead modules**: `ui_faceswap.py` (by
@@ -311,15 +339,14 @@ Specifically unverified:
 
 ## 12. Related earlier work (same session, separate deliverable)
 
-`E:\go\face swap\modal_app.py` â€” a **ComfyUI + PyraCanny + ReActor + InstantID**
+`E:\go\face swap\modal_app.py` — a **ComfyUI + PyraCanny + ReActor + InstantID**
 app for Modal (A100-40GB, $30/mo free credit). Fully tested (187 checks) but also
 never run against a real GPU. This Colab notebook superseded it for the user's
 use case. Kept for reference.
 
 Key shared knowledge from that work:
 - `comfyui_controlnet_aux`'s PyraCanny == Fooocus's `canny_pyramid` (same algorithm)
-- Fooocus's "FaceSwap" is **IP-Adapter Plus Face**, not a real swap â€” confirmed in
-  `modules/async_worker.py` lines 430â€“442
+- Fooocus's "FaceSwap" is **IP-Adapter Plus Face**, not a real swap — confirmed in
+  `modules/async_worker.py` lines 430–442
 - InsightFace routes models by **graph shape**, not filename
 - ReActor's `reactor_core` is self-contained (41 KB, no insightface import)
-
