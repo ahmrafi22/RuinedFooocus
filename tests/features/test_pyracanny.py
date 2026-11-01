@@ -173,6 +173,47 @@ for size in [(8, 8), (17, 33), (1, 1)]:
 
 print()
 print("=" * 66)
+print("7) tensor wrapper (what the pipeline actually calls)")
+print("=" * 66)
+# The pipeline holds the pose reference as a ComfyUI IMAGE tensor
+# ([B, H, W, C], 0..1) and must hand ControlNetApplyAdvanced one back.
+# Feeding the PIL-only wrapper crashed a real Colab render with
+# AttributeError: 'Tensor' object has no attribute 'convert'.
+import torch
+
+t = torch.from_numpy(img.astype(np.float32) / 255.0)[None,]
+out_t = cu.pyracanny_from_tensor(t, 64, 128)
+check(isinstance(out_t, torch.Tensor), f"returns a tensor ({type(out_t).__name__})")
+check(tuple(out_t.shape) == (1, *img.shape[:2], 3),
+      f"same [B, H, W, C] shape ({tuple(out_t.shape)})")
+check(out_t.dtype == torch.float32, f"float32 ({out_t.dtype})")
+check(0.0 <= float(out_t.min()) and float(out_t.max()) <= 1.0,
+      f"in 0..1 ({float(out_t.min()):.3f}..{float(out_t.max()):.3f})")
+check(float(out_t.max()) > 0, "produced actual edges")
+back = np.clip(255.0 * out_t[0].numpy(), 0, 255).astype(np.uint8)
+check(np.array_equal(back, out), "tensor path is byte-identical to the PIL path")
+
+# a batch goes through one item at a time
+t2 = torch.cat([t, t], dim=0)
+out_b = cu.pyracanny_from_tensor(t2, 64, 128)
+check(tuple(out_b.shape) == (2, *img.shape[:2], 3),
+      f"a batch keeps every item ({tuple(out_b.shape)})")
+check(np.array_equal(out_b[0].numpy(), out_b[1].numpy()), "batch items match")
+
+try:
+    cu.pyracanny_from_tensor(img, 64, 128)
+    check(False, "a non-tensor is rejected")
+except TypeError:
+    check(True, "a non-tensor is rejected")
+
+try:
+    cu.pyracanny_from_tensor(torch.zeros(3, 3), 64, 128)
+    check(False, "a tensor without a batch dim is rejected")
+except ValueError:
+    check(True, "a tensor without a batch dim is rejected")
+
+print()
+print("=" * 66)
 if fails:
     print(f"{len(fails)} FAILURE(S)")
     for f in fails:

@@ -165,7 +165,7 @@ print("=" * 66)
 print("6) pyracanny is wired into the pipeline")
 print("=" * 66)
 check('case "pyracanny":' in psrc, "the pipeline has a pyracanny branch")
-check("pyracanny_from_pil" in psrc, "it calls the PyraCanny implementation")
+check("pyracanny_from_tensor" in psrc, "it calls the PyraCanny implementation (tensor-aware)")
 check("threshold_from_unit" in psrc, "thresholds are mapped 0..1 -> 0..255")
 
 cnsrc = (REPO / "modules" / "controlnet.py").read_text(encoding="utf-8")

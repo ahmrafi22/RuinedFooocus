@@ -934,7 +934,7 @@ class pipeline:
                     # Same accumulation Fooocus used: Canny at 0.2..1.0 and
                     # blended 0.75/0.25. Done in cv2 so it needs no new deps.
                     from modules.canny_utils import (
-                        pyracanny_from_pil,
+                        pyracanny_from_tensor,
                         threshold_from_unit,
                     )
 
@@ -942,7 +942,10 @@ class pipeline:
                         float(controlnet.get("edge_low", 0.25)),
                         float(controlnet.get("edge_high", 0.5)),
                     )
-                    input_image = pyracanny_from_pil(input_image, low, high)
+                    # input_image is a ComfyUI IMAGE tensor here (the PIL
+                    # pose reference was converted when it arrived), and the
+                    # edges must leave as one for ControlNetApplyAdvanced.
+                    input_image = pyracanny_from_tensor(input_image, low, high)
                     updated_conditions = True
                 case "depth":
                     updated_conditions = True

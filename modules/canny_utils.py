@@ -132,6 +132,35 @@ def pyracanny_from_pil(image, low=64, high=128):
     return _Image.fromarray(canny_pyramid(arr, low, high))
 
 
+def pyracanny_from_tensor(image, low=64, high=128):
+    """torch tensor [B, H, W, C] in 0..1 -> PyraCanny edges, same format.
+
+    The pipeline holds the pose reference as a ComfyUI IMAGE tensor and
+    ControlNetApplyAdvanced wants one back, while the pyramid itself runs
+    on PIL pixels. The 0..255 uint8 round trip is exact, so the result is
+    byte-identical to pyracanny_from_pil on the same image.
+    """
+    import torch
+    from PIL import Image as _Image
+
+    if not isinstance(image, torch.Tensor):
+        raise TypeError(f"expected a torch.Tensor, got {type(image).__name__}")
+    if image.ndim != 4:
+        raise ValueError(
+            f"expected a [B, H, W, C] tensor, got shape {tuple(image.shape)}"
+        )
+
+    edges = []
+    for item in image.detach().cpu():
+        pil = _Image.fromarray(
+            np.clip(255.0 * item.numpy(), 0, 255).astype(np.uint8)
+        )
+        edges.append(
+            np.asarray(pyracanny_from_pil(pil, low, high)).astype(np.float32) / 255.0
+        )
+    return torch.from_numpy(np.stack(edges))
+
+
 def threshold_from_unit(unit_low, unit_high):
     """Map the UI's 0..1 thresholds onto OpenCV's 0..255 range.
 
