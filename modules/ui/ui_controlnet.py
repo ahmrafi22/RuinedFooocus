@@ -140,6 +140,7 @@ def add_controlnet_tab(main_view, inpaint_view, prompt, image_number, run_event)
             # cn_start,cn_stop,cn_strength,cn_edge_low,cn_edge_high, cn_upscaler
             slider_states = {
                 "canny": [True, True, True, True, True, False],
+                "pyracanny": [True, True, True, True, True, False],
                 "img2img": [False, False, True, False, False, False],
                 "default": [True, True, True, False, False, False],
                 "upscale": [False, False, False, False, False, True],
@@ -182,6 +183,14 @@ def add_controlnet_tab(main_view, inpaint_view, prompt, image_number, run_event)
                     "upscaler": upscale_model,
                 }
                 if cn_type.lower() == "canny":
+                    opts.update(
+                        {
+                            "edge_low": cn_edge_low,
+                            "edge_high": cn_edge_high,
+                        }
+                    )
+                if cn_type.lower() == "pyracanny":
+                    # OpenCV wants 0..255; the sliders are 0..1.
                     opts.update(
                         {
                             "edge_low": cn_edge_low,

@@ -12,6 +12,9 @@ NEWCN = "Custom..."
 # https://huggingface.co/stabilityai/control-lora/tree/main/control-LoRAs-rank128
 controlnet_models = {
     "canny": "control-lora-canny-rank128.safetensors",
+    # PyraCanny reuses the same canny ControlNet; only the edge extraction
+    # differs (multi-scale instead of single-scale).
+    "pyracanny": "control-lora-canny-rank128.safetensors",
     "depth": "control-lora-depth-rank128.safetensors",
     "recolour": "control-lora-recolor-rank128.safetensors",
     "sketch": "control-lora-sketch-rank128-metadata.safetensors",

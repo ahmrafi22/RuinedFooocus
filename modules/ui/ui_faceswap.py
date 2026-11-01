@@ -72,6 +72,38 @@ def add_faceswap_tab():
                 )
                 add_ctrl("faceswap_paste_back", paste_back)
 
+        with gr.Accordion(label=t("Enhance / Upscale"), open=False):
+            gr.Markdown(
+                value=(
+                    "Runs after generation. The upscaler enlarges the image, then "
+                    "the face swap is applied **last** — a 128px swap stretched "
+                    "by an upscaler goes soft, so doing it at the end keeps the "
+                    "identity sharp."
+                )
+            )
+
+            enhance_enable = gr.Checkbox(
+                label=t("Enable enhance / upscale"),
+                value=False,
+            )
+            add_ctrl("enhance_enable", enhance_enable)
+
+            enhance_upscaler = gr.Dropdown(
+                label=t("Upscaler"),
+                choices=["None"] + path_manager.upscaler_filenames,
+                value="4x-UltraSharp.pth",
+                info=t("First use downloads the model"),
+            )
+            add_ctrl("enhance_upscaler", enhance_upscaler)
+
+            enhance_max_edge = gr.Dropdown(
+                label=t("Final long edge"),
+                choices=[1024, 1536, 2048, 2560, 3072],
+                value=2048,
+                info=t("The 4x result is scaled down to this"),
+            )
+            add_ctrl("enhance_max_edge", enhance_max_edge)
+
         with gr.Accordion(label=t("Status"), open=False):
             status_box = gr.Textbox(
                 label="",
@@ -91,6 +123,46 @@ def add_faceswap_tab():
                 inputs=[],
                 outputs=[status_box],
             )
+
+        # One click to a photographic setup: styles, CFG, steps, resolution.
+        with gr.Accordion(label=t("Realistic preset"), open=False):
+            gr.Markdown(
+                value=(
+                    "Applies photographic styles, CFG 5, 40 steps and a 3:4 "
+                    "resolution — the settings that read as a real photo rather "
+                    "than an illustration."
+                )
+            )
+            preset_btn = gr.Button(value=t("Apply realistic preset"))
+            preset_note = gr.Textbox(label="", value="", lines=2, interactive=False)
+
+            def apply_realistic():
+                from modules.enhance import REALISTIC_PRESET
+
+                updates = {k: gr.update(value=v) for k, v in REALISTIC_PRESET.items()}
+                return [updates, "Applied."]
+
+            # These components live on the main tab; address them by id through
+            # shared.get_ctrl so this stays decoupled from webui.py ordering.
+            from shared import get_ctrl
+
+            targets = []
+            for key in ("style_selection", "cfg", "custom_steps",
+                        "sampler_name", "scheduler", "negative"):
+                try:
+                    ctrl = get_ctrl(key)
+                except (ValueError, KeyError):
+                    ctrl = None
+                if ctrl is not None:
+                    targets.append(ctrl)
+
+            if targets:
+                preset_btn.click(
+                    api_visibility="undocumented",
+                    fn=apply_realistic,
+                    inputs=[],
+                    outputs=targets + [preset_note],
+                )
 
         # Escape hatch for hosts that proxy the UI under a path (Colab does).
         # Gradio builds this link from its own live server address.
@@ -112,3 +184,4 @@ def add_faceswap_tab():
             )
 
     return enable
+

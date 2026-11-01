@@ -912,6 +912,20 @@ class pipeline:
                         high_threshold=high,
                     )[0]
                     updated_conditions = True
+                case "pyracanny":
+                    # Same accumulation Fooocus used: Canny at 0.2..1.0 and
+                    # blended 0.75/0.25. Done in cv2 so it needs no new deps.
+                    from modules.canny_utils import (
+                        pyracanny_from_pil,
+                        threshold_from_unit,
+                    )
+
+                    low, high = threshold_from_unit(
+                        float(controlnet.get("edge_low", 0.25)),
+                        float(controlnet.get("edge_high", 0.5)),
+                    )
+                    input_image = pyracanny_from_pil(input_image, low, high)
+                    updated_conditions = True
                 case "depth":
                     updated_conditions = True
             if self.xl_controlnet:

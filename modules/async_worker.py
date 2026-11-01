@@ -20,6 +20,7 @@ from PIL.PngImagePlugin import PngInfo
 from modules.util import generate_temp_filename, TimeIt, get_checkpoint_hashes, get_lora_hashes
 import modules.pipelines
 import modules.faceswap
+import modules.enhance
 from shared import settings
 
 buffer = []
@@ -64,6 +65,42 @@ def apply_face_swap(image, gen_data):
         return image
 
     return swapped if swapped is not None else image
+
+
+def apply_postprocess(image, gen_data):
+    """Upscale and/or swap a finished image.
+
+    Order matters: upscale first, swap last. A 128px swap stretched by the
+    upscaler goes soft, so re-swapping at full size keeps the identity sharp.
+    """
+    enhance = bool(gen_data.get("enhance_enable"))
+
+    if not enhance:
+        return apply_face_swap(image, gen_data)
+
+    swap_target = gen_data.get("faceswap_source") if gen_data.get("faceswap_enable") else None
+    swap_kwargs = {}
+    if swap_target is not None:
+        swap_kwargs = dict(
+            det_size=int(gen_data.get("faceswap_det_size") or 640),
+            target_index=gen_data.get("faceswap_target_index") or 0,
+            source_index=gen_data.get("faceswap_source_index") or 0,
+            paste_back=gen_data.get("faceswap_paste_back", True),
+        )
+
+    try:
+        return modules.enhance.enhance_image(
+            image,
+            upscale_model_name=gen_data.get("enhance_upscaler") or modules.enhance.DEFAULT_UPSCALER,
+            upscale_factor_long_edge=int(gen_data.get("enhance_max_edge") or 2048),
+            swap_target=swap_target,
+            swap_kwargs=swap_kwargs,
+        )
+    except Exception as exc:
+        print(f"ERROR: enhance failed: {exc}")
+        traceback.print_exc()
+        # Fall back to the plain swap rather than losing the image.
+        return apply_face_swap(image, gen_data)
 
 
 def _process(gen_data):
@@ -295,10 +332,10 @@ def _process(gen_data):
                 print(f"ERROR: {iex}")
 
         for x in imgs:
-            # Face swap runs here, on the finished image, so it covers every
+            # Post-processing runs on the finished image, so it covers every
             # pipeline and every image in the batch.
-            if gen_data.get("faceswap_enable"):
-                x = apply_face_swap(x, gen_data)
+            if gen_data.get("faceswap_enable") or gen_data.get("enhance_enable"):
+                x = apply_postprocess(x, gen_data)
 
             folder=shared.path_manager.model_paths["temp_outputs_path"]
             local_temp_filename = generate_temp_filename(
